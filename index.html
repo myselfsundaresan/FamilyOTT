@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FamilyOTT</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Nunito:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{color-scheme:dark;--bg:#12162b;--card:#1c2142;--line:#2c3363;--tx:#eef0fb;--mut:#a3a9d1;--acc:#ffb84d;--r:16px}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--tx);font:400 18px/1.5 Nunito,system-ui,sans-serif;min-height:100vh}
+h1,h2,h3,.brand{font-family:Fredoka,Nunito,sans-serif;font-weight:600}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+:focus-visible{outline:4px solid var(--acc);outline-offset:3px}
+header{position:sticky;top:0;z-index:5;display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding:14px 4vw;background:rgba(18,22,43,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.brand{font-size:28px;color:var(--acc);margin-right:8px}
+.tabs,.chips{display:flex;gap:8px;flex-wrap:wrap}
+.tab,.chip{padding:8px 18px;border-radius:99px;background:var(--card);border:2px solid transparent}
+.tab[aria-pressed=true],.chip[aria-pressed=true]{background:var(--acc);color:#2a1b00;font-weight:700}
+.sp{flex:1}
+#q{background:var(--card);border:2px solid var(--line);border-radius:99px;color:var(--tx);padding:8px 18px;font:inherit;width:200px}
+.hero{position:relative;min-height:46vh;display:flex;align-items:flex-end;padding:4vw;background:var(--card) center/cover}
+.hero::before{content:"";position:absolute;inset:0;background:linear-gradient(0deg,var(--bg) 4%,rgba(18,22,43,.35) 60%,rgba(18,22,43,.7))}
+.hero>div{position:relative;max-width:640px}
+.hero h1{font-size:clamp(30px,5vw,52px);line-height:1.1}
+.hero p{color:var(--mut);margin:10px 0 16px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.btn{display:inline-block;padding:12px 26px;border-radius:99px;background:var(--acc);color:#2a1b00;font-weight:700;text-decoration:none;margin:0 8px 8px 0}
+.btn.alt{background:var(--card);color:var(--tx);border:2px solid var(--line)}
+main{padding:8px 0 60px}
+.row{padding:14px 4vw 0}
+.row h2{font-size:24px;margin-bottom:10px}
+.strip{display:flex;gap:14px;overflow-x:auto;padding:6px 4px 14px;scroll-snap-type:x proximity;scrollbar-width:thin}
+.card{flex:0 0 auto;width:170px;scroll-snap-align:start;text-align:left;transition:transform .15s}
+.card:hover,.card:focus-visible{transform:scale(1.07)}
+.card img,.ph{width:170px;height:255px;object-fit:cover;border-radius:var(--r);background:var(--card);display:block}
+.ph{display:flex;align-items:center;justify-content:center;padding:10px;text-align:center;color:var(--mut)}
+.card span{display:block;font-size:15px;margin-top:6px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.note{padding:30px 4vw;color:var(--mut);max-width:760px}
+dialog{border:0;border-radius:24px;background:var(--card);color:var(--tx);width:min(900px,94vw);max-height:90vh;padding:0;overflow:auto}
+dialog::backdrop{background:rgba(5,7,18,.8)}
+.d-top{height:240px;background:var(--line) center/cover}
+.d-body{padding:22px 28px 28px}
+.d-body h2{font-size:32px}
+.meta{color:var(--mut);margin:4px 0 12px}
+.badge{display:inline-block;padding:2px 10px;border-radius:8px;border:2px solid var(--acc);color:var(--acc);font-weight:700;margin-right:8px}
+.field{display:block;margin:14px 0}
+.field input,.field select{width:100%;background:var(--bg);border:2px solid var(--line);border-radius:12px;color:var(--tx);font:inherit;padding:10px 14px}
+.chk{display:inline-flex;gap:8px;align-items:center;margin:4px 14px 4px 0}
+.chk input{width:22px;height:22px}
+.x{float:right;margin:14px;font-size:30px;line-height:1}
+@media (max-width:640px){.card,.card img,.ph{width:130px}.card img,.ph{height:195px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header>
+ <div class="brand">FamilyOTT</div>
+ <div class="tabs" id="types"></div>
+ <div class="chips" id="chips" aria-label="Platforms"></div>
+ <div class="sp"></div>
+ <input id="q" type="search" placeholder="Search titles" aria-label="Search titles">
+ <button class="tab" id="listBtn">My List</button>
+ <button class="tab" id="setBtn">Settings</button>
+</header>
+<div class="hero" id="hero"></div>
+<main id="rows"></main>
+<dialog id="dlg"></dialog>
+
+<script>
+const TMDB="https://api.themoviedb.org/3",IMG="https://image.tmdb.org/t/p/";
+const PROV={Netflix:8,"Prime Video":119,JioHotstar:122,ZEE5:232,SonyLIV:237,"Sun NXT":309,Aha:532,"Apple TV+":350};
+const SEARCH={Netflix:"https://www.netflix.com/search?q=",
+"Prime Video":"https://www.primevideo.com/search/?phrase=",
+JioHotstar:"https://www.hotstar.com/in/search?q=",
+ZEE5:"https://www.zee5.com/search?q=",
+SonyLIV:"https://www.sonyliv.com/search?q=",
+"Sun NXT":"https://www.sunnxt.com/",Aha:"https://www.aha.video/",
+"Apple TV+":"https://tv.apple.com/search?term="};
+const BLOCK_MOVIE="27,53,80,10752",BLOCK_TV="80,10768";
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const store={get(k,d){try{const v=localStorage.getItem("fott_"+k);return v?JSON.parse(v):d}catch(e){return d}},
+ set(k,v){try{localStorage.setItem("fott_"+k,JSON.stringify(v))}catch(e){}}};
+const S={key:store.get("key",""),mode:store.get("mode","family"),pin:store.get("pin",""),
+ provs:store.get("provs",Object.keys(PROV)),type:"movie",chip:null,list:store.get("list",[])};
+let unlocked=false;
+
+async function api(path,p={}){
+ const u=new URL(TMDB+path);u.searchParams.set("api_key",S.key);
+ for(const k in p)if(p[k]!==""&&p[k]!=null)u.searchParams.set(k,p[k]);
+ const r=await fetch(u);if(!r.ok)throw new Error(r.status===401?"Invalid TMDB API key":"TMDB error "+r.status);
+ return r.json();
+}
+function filters(type,extra={}){
+ const kids=S.mode==="kids",ids=(S.chip?[S.chip]:S.provs).map(n=>PROV[n]).join("|");
+ const p={include_adult:false,watch_region:"IN",with_watch_monetization_types:"flatrate",
+  with_watch_providers:ids,without_genres:type==="movie"?BLOCK_MOVIE:BLOCK_TV,page:1};
+ if(type==="movie"){p.certification_country="IN";p["certification.lte"]=kids?"U":"UA"}
+ if(kids)p.with_genres="16|10751";
+ return Object.assign(p,extra);
+}
+function rows(){
+ const t=S.type,today=new Date().toISOString().slice(0,10);
+ const dateKey=t==="movie"?"primary_release_date":"first_air_date";
+ const R=[["New on OTT",{sort_by:dateKey+".desc",[dateKey+".lte"]:today,"vote_count.gte":5}],
+ ["Trending now",{sort_by:"popularity.desc"}],
+ ["Tamil",{with_original_language:"ta",sort_by:"popularity.desc"}],
+ ["Hindi",{with_original_language:"hi",sort_by:"popularity.desc"}],
+ ["English",{with_original_language:"en",sort_by:"popularity.desc"}],
+ ["Telugu and Malayalam",{with_original_language:"te|ml",sort_by:"popularity.desc"}],
+ ["Top rated",{sort_by:"vote_average.desc","vote_count.gte":200}]];
+ if(S.mode!=="kids"){R.splice(4,0,["Family",{with_genres:"10751",sort_by:"popularity.desc"}],["Animation",{with_genres:"16",sort_by:"popularity.desc"}])}
+ return R;
+}
+function card(m,type){
+ const title=m.title||m.name,poster=m.poster_path?IMG+"w342"+m.poster_path:"";
+ const b=document.createElement("button");b.className="card";
+ b.innerHTML=(poster?`<img loading="lazy" src="${poster}" alt="">`:`<div class="ph">${esc(title)}</div>`)+`<span>${esc(title)}</span>`;
+ b.onclick=()=>openDetail(m.id,type||m.media_type||S.type);return b;
+}
+function strip(title,items,type){
+ const s=document.createElement("section");s.className="row";
+ s.innerHTML=`<h2>${esc(title)}</h2><div class="strip"></div>`;
+ const st=s.querySelector(".strip");items.forEach(m=>st.append(card(m,type)));return s;
+}
+function note(html){$("#rows").innerHTML=`<div class="note">${html}</div>`;$("#hero").style.display="none"}
+async function load(){
+ $("#hero").style.display="";$("#hero").innerHTML="";
+ if(!S.key)return note(`<h2>Add your free TMDB key</h2><p>Open Settings and paste a TMDB API key. You can get one free at themoviedb.org under Settings, then API.</p>`);
+ $("#rows").innerHTML=`<div class="note">Loading…</div>`;
+ try{
+  const t=S.type,defs=rows();
+  const res=await Promise.all(defs.map(d=>api("/discover/"+t,filters(t,d[1]))));
+  const box=$("#rows");box.innerHTML="";
+  const first=res[0].results.find(m=>m.backdrop_path)||res[1].results[0];
+  if(first)hero(first,t);else $("#hero").style.display="none";
+  let any=false;
+  res.forEach((r,i)=>{if(r.results.length){any=true;box.append(strip(defs[i][0],r.results,t))}});
+  if(!any)note(`<h2>Nothing found</h2><p>Try another platform, or turn on more platforms in Settings.</p>`);
+ }catch(e){note(`<h2>Could not load titles</h2><p>${esc(e.message)}. Check your TMDB key in Settings and your internet connection.</p>`)}
+}
+function hero(m,t){
+ const h=$("#hero");h.style.backgroundImage=m.backdrop_path?`url(${IMG}w1280${m.backdrop_path})`:"";
+ h.innerHTML=`<div><h1>${esc(m.title||m.name)}</h1><p>${esc(m.overview)}</p></div>`;
+ const b=document.createElement("button");b.className="btn";b.textContent="See where to watch";
+ b.onclick=()=>openDetail(m.id,t);h.firstChild.append(b);
+}
+function inList(id,t){return S.list.some(x=>x.id===id&&x.type===t)}
+function toggleList(m,t){
+ if(inList(m.id,t))S.list=S.list.filter(x=>!(x.id===m.id&&x.type===t));
+ else S.list.push({id:m.id,type:t,title:m.title||m.name,poster_path:m.poster_path});
+ store.set("list",S.list);
+}
+async function openDetail(id,t){
+ const d=$("#dlg");d.innerHTML=`<button class="x" aria-label="Close" onclick="dlg.close()">×</button><div class="d-body">Loading…</div>`;d.showModal();
+ try{
+  const m=await api(`/${t}/${id}`,{append_to_response:"videos,watch/providers,release_dates,content_ratings"});
+  const cert=t==="movie"?((m.release_dates.results.find(r=>r.iso_3166_1==="IN")||{release_dates:[]}).release_dates.find(x=>x.certification)||{}).certification||""
+   :((m.content_ratings.results.find(r=>r.iso_3166_1==="IN")||m.content_ratings.results.find(r=>r.iso_3166_1==="US")||{}).rating||"");
+  const adult=m.adult||/^(A|18\+|R|NC-17|TV-MA|X)$/i.test(cert);
+  if(adult){d.innerHTML=`<button class="x" aria-label="Close" onclick="dlg.close()">×</button><div class="d-body"><h2>Not available</h2><p class="meta">This title is rated for adults and is hidden on FamilyOTT.</p></div>`;return}
+  if(S.mode==="kids"&&!cert){d.innerHTML=`<button class="x" aria-label="Close" onclick="dlg.close()">×</button><div class="d-body"><h2>Not available</h2><p class="meta">Kids mode only shows titles with a known age rating.</p></div>`;return}
+  const title=m.title||m.name,wp=(m["watch/providers"].results||{}).IN||{};
+  const flat=(wp.flatrate||[]).map(p=>p.provider_name);
+  const links=(wp.flatrate||[]).map(p=>{
+   const n=Object.keys(SEARCH).find(k=>p.provider_name.toLowerCase().includes(k.toLowerCase().replace("jio","").replace(" ","")))||Object.keys(PROV).find(k=>PROV[k]===p.provider_id);
+   const base=SEARCH[n];return `<a class="btn" target="_blank" rel="noopener" href="${base?base+(base.endsWith("=")||base.endsWith("e=")||base.endsWith("m=")?encodeURIComponent(title):""):esc(wp.link||"#")}">Open ${esc(p.provider_name)}</a>`}).join("");
+  const tr=(m.videos.results.find(v=>v.site==="YouTube"&&v.type==="Trailer")||{}).key;
+  const yr=(m.release_date||m.first_air_date||"").slice(0,4);
+  d.innerHTML=`<button class="x" aria-label="Close" onclick="dlg.close()">×</button>
+  <div class="d-top" style="background-image:url(${m.backdrop_path?IMG+"w780"+m.backdrop_path:""})"></div>
+  <div class="d-body"><h2>${esc(title)}</h2>
+  <p class="meta">${cert?`<span class="badge">${esc(cert)}</span>`:""}${esc(yr)}${m.runtime?` · ${m.runtime} min`:""}${m.vote_average?` · ★ ${m.vote_average.toFixed(1)}`:""} · ${esc((m.genres||[]).map(g=>g.name).join(", "))}</p>
+  <p>${esc(m.overview)}</p>
+  <h3 style="margin-top:18px">Watch on</h3>
+  <p>${links||`<span class="meta">Not on your platforms in India right now.</span>`}</p>
+  <p>${wp.link?`<a class="btn alt" target="_blank" rel="noopener" href="${esc(wp.link)}">All options (JustWatch)</a>`:""}
+  ${tr?`<a class="btn alt" target="_blank" rel="noopener" href="https://www.youtube.com/watch?v=${esc(tr)}">Trailer</a>`:""}
+  <button class="btn alt" id="lb"></button></p>
+  <p class="meta" style="font-size:14px">Data from TMDB. Streaming availability from JustWatch.</p></div>`;
+  const lb=$("#lb"),setL=()=>lb.textContent=inList(m.id,t)?"Remove from My List":"Add to My List";
+  setL();lb.onclick=()=>{toggleList(m,t);setL()};
+ }catch(e){d.innerHTML=`<button class="x" aria-label="Close" onclick="dlg.close()">×</button><div class="d-body"><h2>Could not open</h2><p class="meta">${esc(e.message)}</p></div>`}
+}
+function showList(){
+ $("#hero").style.display="none";const box=$("#rows");box.innerHTML="";
+ if(!S.list.length)return note(`<h2>Your list is empty</h2><p>Open any title and choose Add to My List.</p>`);
+ ["movie","tv"].forEach(t=>{const it=S.list.filter(x=>x.type===t);if(it.length)box.append(strip(t==="movie"?"Movies":"Series",it,t))});
+}
+async function search(q){
+ if(!S.key)return load();
+ try{
+  const r=await api("/search/"+S.type,{query:q,include_adult:false});
+  const box=$("#rows");$("#hero").style.display="none";box.innerHTML="";
+  const ok=r.results.filter(m=>!m.adult&&!(m.genre_ids||[]).some(g=>(S.type==="movie"?BLOCK_MOVIE:BLOCK_TV).split(",").includes(String(g)))&&(S.mode!=="kids"||(m.genre_ids||[]).some(g=>g===16||g===10751)));
+  if(ok.length)box.append(strip("Results",ok,S.type));else note(`<h2>No results</h2><p>Try a different title. Adult titles are never shown.</p>`);
+ }catch(e){note(esc(e.message))}
+}
+function settings(){
+ const d=$("#dlg");
+ d.innerHTML=`<button class="x" aria-label="Close" onclick="dlg.close()">×</button><div class="d-body"><h2>Settings</h2>
+ <label class="field">TMDB API key<input id="sKey" value="${esc(S.key)}" autocomplete="off"></label>
+ <label class="field">Who is watching<select id="sMode"><option value="family"${S.mode==="family"?" selected":""}>Family (U and UA titles)</option><option value="kids"${S.mode==="kids"?" selected":""}>Kids (U-rated animation and family)</option></select></label>
+ <div class="field">My platforms<br>${Object.keys(PROV).map(n=>`<label class="chk"><input type="checkbox" value="${n}"${S.provs.includes(n)?" checked":""}>${n}</label>`).join("")}</div>
+ <label class="field">Parent PIN (leave empty for none)<input id="sPin" type="password" inputmode="numeric" maxlength="8" value="${esc(S.pin)}"></label>
+ <button class="btn" id="sSave">Save</button></div>`;
+ $("#sSave").onclick=()=>{
+  S.key=$("#sKey").value.trim();S.mode=$("#sMode").value;S.pin=$("#sPin").value.trim();
+  S.provs=[...d.querySelectorAll(".chk input:checked")].map(i=>i.value);
+  if(!S.provs.length)S.provs=Object.keys(PROV);
+  store.set("key",S.key);store.set("mode",S.mode);store.set("pin",S.pin);store.set("provs",S.provs);
+  S.chip=null;unlocked=false;d.close();draw();
+ };
+ d.showModal();
+}
+function askPin(){
+ if(!S.pin||unlocked){settings();return}
+ const d=$("#dlg");
+ d.innerHTML=`<button class="x" aria-label="Close" onclick="dlg.close()">×</button><div class="d-body"><h2>Parent PIN</h2><label class="field">Enter PIN<input id="pp" type="password" inputmode="numeric" autocomplete="off"></label><button class="btn" id="pOk">Open settings</button><p class="meta" id="pm"></p></div>`;
+ d.showModal();$("#pp").focus();
+ const go=()=>{if($("#pp").value===S.pin){unlocked=true;settings()}else{$("#pm").textContent="Wrong PIN. Try again.";$("#pp").value=""}};
+ $("#pOk").onclick=go;$("#pp").onkeydown=e=>{if(e.key==="Enter")go()};
+}
+function draw(){
+ $("#types").innerHTML="";
+ [["movie","Movies"],["tv","Series"]].forEach(([k,l])=>{
+  const b=document.createElement("button");b.className="tab";b.textContent=l;b.setAttribute("aria-pressed",S.type===k);
+  b.onclick=()=>{S.type=k;draw()};$("#types").append(b)});
+ const c=$("#chips");c.innerHTML="";
+ S.provs.forEach(n=>{const b=document.createElement("button");b.className="chip";b.textContent=n;b.setAttribute("aria-pressed",S.chip===n);
+  b.onclick=()=>{S.chip=S.chip===n?null:n;draw()};c.append(b)});
+ $("#q").value="";load();
+}
+$("#setBtn").onclick=askPin;$("#listBtn").onclick=showList;
+let tmr;$("#q").oninput=e=>{clearTimeout(tmr);const v=e.target.value.trim();tmr=setTimeout(()=>v.length>1?search(v):draw(),400)};
+document.addEventListener("keydown",e=>{
+ const a=document.activeElement;if(!a||!a.classList.contains("card"))return;
+ const strip=a.parentElement,rows=[...document.querySelectorAll(".strip")],i=rows.indexOf(strip);
+ let n=null;
+ if(e.key==="ArrowRight")n=a.nextElementSibling;
+ if(e.key==="ArrowLeft")n=a.previousElementSibling;
+ if(e.key==="ArrowDown"&&rows[i+1]){const k=[...strip.children].indexOf(a);n=rows[i+1].children[Math.min(k,rows[i+1].children.length-1)]}
+ if(e.key==="ArrowUp"&&rows[i-1]){const k=[...strip.children].indexOf(a);n=rows[i-1].children[Math.min(k,rows[i-1].children.length-1)]}
+ if(n){e.preventDefault();n.focus();n.scrollIntoView({block:"center",inline:"center",behavior:"smooth"})}
+});
+draw();
+</script>
+</body>
+</html>
